@@ -17,5 +17,3 @@ COPY . /app
 
 # Sync the project
 RUN uv sync --frozen
-
-CMD [ "python", "llmwriter/foo.py" ]
