@@ -150,8 +150,8 @@ def section_router_node(state: dict[str, Any]) -> dict[str, Any]:
             section_info = {"section": section, "path": current_path}
             all_sections.append(section_info)
 
-            if section.subsections:
-                collect_sections(section.subsections, current_path)
+            if section.subsections:  # type: ignore[attr-defined]
+                collect_sections(section.subsections, current_path)  # type: ignore[attr-defined]
 
     collect_sections(doc_structure.sections)
 

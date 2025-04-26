@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.models.structures import (
+from src.llmwriter.models.structures import (
     ChartContent,
     ChartSeries,
     ComplexContent,

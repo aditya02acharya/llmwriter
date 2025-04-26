@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from src.utils.helpers import (
+from src.llmwriter.utils.helpers import (
     check_environment,
     create_backup,
     decode_base64_to_image,
@@ -123,6 +123,6 @@ def test_format_error_message():
 
 
 def test_get_temp_directory(temp_directory, monkeypatch):
-    monkeypatch.setattr("src.utils.helpers.get_project_root", lambda: temp_directory)
+    monkeypatch.setattr("src.llmwriter.utils.helpers.get_project_root", lambda: temp_directory)
     temp_dir = get_temp_directory()
     assert os.path.exists(temp_dir)
