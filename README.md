@@ -104,8 +104,8 @@ print(f"PDF document generated at: {pdf_path}")
 ## Project Structure
 
 ```
-llmwriter/
-├── src/
+.
+├── src/llmwriter/
 │   ├── __init__.py
 │   ├── generator.py      # Main implementation
 │   ├── nodes/            # Langraph node implementations
@@ -121,7 +121,6 @@ llmwriter/
 │       └── helpers.py
 ├── cli.py                # Command-line interface
 ├── config.json           # Example configuration
-├── requirements.txt      # Dependencies
 ├── example_requirements/ # Example document requirements
 │   └── technical_whitepaper.txt
 └── README.md

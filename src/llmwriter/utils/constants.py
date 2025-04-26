@@ -1,0 +1,1 @@
+DEFAULT_ANTHROPIC_MODEL_ID: str = "claude-3-7-sonnet-20250219"

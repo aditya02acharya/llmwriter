@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "anthropic>=0.50.0",
+    "backoff>=2.2.1",
     "langchain-anthropic>=0.3.12",
     "langchain-openai>=0.3.14",
     "langgraph>=0.3.34",
@@ -114,6 +115,7 @@ ignore = [
     "E731",
     "TRY300",
     "TRY401",
+    "TRY003",
 
 ]
 
