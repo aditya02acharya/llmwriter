@@ -368,7 +368,7 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     # Add custom styles with theme colors
     styles.add(
         ParagraphStyle(
-            name="Heading1",
+            name="CustomHeading1",
             parent=styles["Heading1"],
             fontSize=16,
             spaceAfter=12,
@@ -378,7 +378,7 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="Heading2",
+            name="CustomHeading2",
             parent=styles["Heading2"],
             fontSize=14,
             spaceAfter=10,
@@ -388,7 +388,7 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="Heading3",
+            name="CustomHeading3",
             parent=styles["Heading3"],
             fontSize=12,
             spaceAfter=8,
@@ -397,15 +397,19 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
         )
     )
     styles.add(
-        ParagraphStyle(name="Normal", parent=styles["Normal"], fontSize=10, leading=14, textColor=color_theme["text"])
-    )
-    styles.add(
-        ParagraphStyle(name="Italic", parent=styles["Italic"], fontSize=10, leading=14, textColor=color_theme["text"])
+        ParagraphStyle(
+            name="CustomNormal", parent=styles["Normal"], fontSize=10, leading=14, textColor=color_theme["text"]
+        )
     )
     styles.add(
         ParagraphStyle(
-            name="Caption",
-            parent=styles["Italic"],
+            name="CustomItalic", parent=styles["Italic"], fontSize=10, leading=14, textColor=color_theme["text"]
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="CustomCaption",
+            parent=styles["CustomItalic"],
             fontSize=9,
             leading=12,
             alignment=1,  # Center alignment
@@ -414,8 +418,8 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="BoxHeading",
-            parent=styles["Heading3"],
+            name="CustomBoxHeading",
+            parent=styles["CustomHeading3"],
             fontSize=12,
             textColor=colors.white,
             backColor=color_theme["primary"],
@@ -424,8 +428,8 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="BoxContent",
-            parent=styles["Normal"],
+            name="CustomBoxContent",
+            parent=styles["CustomNormal"],
             fontSize=10,
             leading=14,
             textColor=color_theme["text"],
@@ -434,8 +438,8 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="Highlight",
-            parent=styles["Normal"],
+            name="CustomHighlight",
+            parent=styles["CustomNormal"],
             fontSize=10,
             leading=14,
             textColor=color_theme["primary"],
@@ -444,8 +448,8 @@ def create_pdf_styles(color_theme: Optional[dict[str, colors.Color]] = None) -> 
     )
     styles.add(
         ParagraphStyle(
-            name="Quote",
-            parent=styles["Normal"],
+            name="CustomQuote",
+            parent=styles["CustomNormal"],
             fontSize=10,
             leading=14,
             leftIndent=36,
@@ -489,7 +493,7 @@ def process_text_content(
                 highlight_box_content = []
                 in_highlight_section = False
 
-            p = Paragraph(para.strip()[2:], styles["Heading2"])
+            p = Paragraph(para.strip()[2:], styles["CustomHeading2"])
             elements.append(p)
 
         elif para.strip().startswith("## "):
@@ -499,13 +503,13 @@ def process_text_content(
                 highlight_box_content = []
                 in_highlight_section = False
 
-            p = Paragraph(para.strip()[3:], styles["Heading3"])
+            p = Paragraph(para.strip()[3:], styles["CustomHeading3"])
             elements.append(p)
 
         elif para.strip().startswith("> ") and add_styling:
             # This is a blockquote
             quote_text = para.strip()[2:]
-            p = Paragraph(quote_text, styles["Quote"])
+            p = Paragraph(quote_text, styles["CustomQuote"])
             elements.append(p)
             elements.append(Spacer(1, 6))
 
@@ -515,11 +519,11 @@ def process_text_content(
             # Add the key point title to the highlight content
             point_text = para.strip().replace("**KEY POINT**", "").strip()
             if point_text:
-                highlight_box_content.append(Paragraph(point_text, styles["BoxContent"]))
+                highlight_box_content.append(Paragraph(point_text, styles["CustomBoxContent"]))
 
         elif in_highlight_section and add_styling:
             # Continue adding to the highlight box
-            highlight_box_content.append(Paragraph(para.strip(), styles["BoxContent"]))
+            highlight_box_content.append(Paragraph(para.strip(), styles["CustomBoxContent"]))
 
         else:
             if in_highlight_section and highlight_box_content and add_styling:
@@ -529,7 +533,7 @@ def process_text_content(
                 in_highlight_section = False
 
             # Regular paragraph
-            p = Paragraph(para.strip(), styles["Normal"])
+            p = Paragraph(para.strip(), styles["CustomNormal"])
             elements.append(p)
             elements.append(Spacer(1, 6))
 
@@ -639,7 +643,7 @@ def process_table_content(
 
         # Add caption if available
         if hasattr(table_data, "caption"):
-            caption = Paragraph(f"Table: {table_data.caption}", styles["Caption"])
+            caption = Paragraph(f"Table: {table_data.caption}", styles["CustomCaption"])
             elements.append(caption)
 
         elements.append(Spacer(1, 15))
@@ -784,7 +788,7 @@ def process_chart_content(
         elements.append(chart_box)
 
         # Add caption
-        caption = Paragraph(f"Figure: {chart_data.title}", styles["Caption"])
+        caption = Paragraph(f"Figure: {chart_data.title}", styles["CustomCaption"])
         elements.append(caption)
         elements.append(Spacer(1, 15))
 
@@ -793,7 +797,7 @@ def process_chart_content(
 
     except Exception as e:
         # Handle chart creation errors
-        error_text = Paragraph(f"Error creating chart: {e!s}", styles["Italic"])
+        error_text = Paragraph(f"Error creating chart: {e!s}", styles["CustomItalic"])
         elements.append(error_text)
         elements.append(Spacer(1, 10))
 
@@ -816,13 +820,13 @@ def process_image_content(
     if ":" in image_content.description and len(image_content.description.split(":")[0]) < 50:
         # Split into title and description if there's a colon
         title, desc = image_content.description.split(":", 1)
-        image_title = Paragraph(f"<b>{title.strip()}</b>", styles["BoxHeading"])
+        image_title = Paragraph(f"<b>{title.strip()}</b>", styles["CustomBoxHeading"])
         image_desc_elements.append(image_title)
         image_desc = Paragraph(desc.strip(), styles["BoxContent"])
         image_desc_elements.append(image_desc)
     else:
         # Use the whole text as description
-        image_desc = Paragraph(image_content.description, styles["BoxContent"])
+        image_desc = Paragraph(image_content.description, styles["CustomBoxContent"])
         image_desc_elements.append(image_desc)
 
     # Create a styled box for the image placeholder
@@ -882,7 +886,9 @@ def process_complex_content(
 
             elif element.type in ["table", "chart", "image"]:
                 # Create a placeholder for non-text elements
-                placeholder_text = Paragraph(f"[{element.type.capitalize()}: {element.content}]", styles["Italic"])
+                placeholder_text = Paragraph(
+                    f"[{element.type.capitalize()}: {element.content}]", styles["CustomItalic"]
+                )
                 placeholder_box = BoxedContent(
                     [placeholder_text],
                     padding=10,
@@ -894,7 +900,7 @@ def process_complex_content(
                 horizontal_elements.append(placeholder_box)
 
         # Create horizontal layout
-        layout_desc = Paragraph(complex_content.layout_description, styles["Normal"])
+        layout_desc = Paragraph(complex_content.layout_description, styles["CustomNormal"])
         elements.append(layout_desc)
         elements.append(Spacer(1, 10))
 
@@ -905,7 +911,7 @@ def process_complex_content(
         # For vertical layout or complex layouts with many elements, use standard approach
 
         # Add the layout description
-        layout_desc = Paragraph(complex_content.layout_description, styles["Normal"])
+        layout_desc = Paragraph(complex_content.layout_description, styles["CustomNormal"])
         elements.append(layout_desc)
         elements.append(Spacer(1, 10))
 
@@ -919,7 +925,9 @@ def process_complex_content(
 
             elif element.type in ["table", "chart", "image"]:
                 # Create a styled placeholder for non-text elements
-                placeholder_text = Paragraph(f"[{element.type.capitalize()}: {element.content}]", styles["Italic"])
+                placeholder_text = Paragraph(
+                    f"[{element.type.capitalize()}: {element.content}]", styles["CustomItalic"]
+                )
 
                 # Use different styling based on element type
                 if element.type == "table":
@@ -1127,11 +1135,11 @@ def pdf_renderer_node(state: dict[str, Any]) -> dict[str, Any]:
     def add_section_to_pdf(section, level=1):
         # Add section title with appropriate heading style and theme color
         if level == 1:
-            section_title = Paragraph(section.title, styles["Heading1"])
+            section_title = Paragraph(section.title, styles["CustomHeading1"])
         elif level == 2:
-            section_title = Paragraph(section.title, styles["Heading2"])
+            section_title = Paragraph(section.title, styles["CustomHeading2"])
         else:
-            section_title = Paragraph(section.title, styles["Heading3"])
+            section_title = Paragraph(section.title, styles["CustomHeading3"])
 
         elements.append(section_title)
         elements.append(Spacer(1, 10))
@@ -1156,7 +1164,7 @@ def pdf_renderer_node(state: dict[str, Any]) -> dict[str, Any]:
 
         except Exception as e:
             # Handle errors in content processing
-            error_text = Paragraph(f"Error processing {section.type} content: {e!s}", styles["Italic"])
+            error_text = Paragraph(f"Error processing {section.type} content: {e!s}", styles["CustomItalic"])
             elements.append(error_text)
             elements.append(Spacer(1, 10))
 

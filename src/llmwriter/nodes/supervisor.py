@@ -6,7 +6,6 @@ import anthropic
 import backoff
 import openai
 from langchain_anthropic import ChatAnthropic
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from ..models.structures import DocumentStructure, SectionStructure, SubsectionStructure
@@ -17,12 +16,12 @@ def get_supervisor_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpe
     """Get a high-capability LLM for supervision tasks"""
     if model_name:
         if "claude" in model_name.lower():
-            return ChatAnthropic(model=model_name, temperature=0.2)  # type: ignore[call-arg]
+            return ChatAnthropic(model=model_name, temperature=0.2, max_tokens=4000)  # type: ignore[call-arg]
         else:
             return ChatOpenAI(model=model_name, temperature=0.2)
 
     # Default to Claude 3.7 for complex reasoning tasks
-    return ChatAnthropic(model=DEFAULT_SUPERVISOR_MODEL_ID, temperature=0.2)  # type: ignore[call-arg]
+    return ChatAnthropic(model=DEFAULT_SUPERVISOR_MODEL_ID, temperature=0.2, max_tokens=4000)  # type: ignore[call-arg]
 
 
 def parse_supervisor_response(response_content: str) -> DocumentStructure:
@@ -64,10 +63,10 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
     model_name = state.get("supervisor_model")
 
     # Create a supervisor LLM
-    model = get_supervisor_llm(model_name)
+    model = get_supervisor_llm(model_name).with_structured_output(DocumentStructure)
 
     # Define the prompt for the supervisor
-    supervisor_prompt = ChatPromptTemplate.from_messages([
+    messages = [
         (
             "system",
             """You are an expert content editor responsible for planning complex PDF documents.
@@ -119,27 +118,11 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         - For complex layouts, detail how elements should be arranged
         """,
         ),
-        ("human", "{requirements}"),
-    ])
+        ("human", f"{requirements}"),
+    ]
 
     # Call the supervisor LLM
-    response = model.invoke(supervisor_prompt.format_messages(requirements=requirements))
-
-    # Parse the JSON response
-    try:
-        doc_structure = parse_supervisor_response(str(response.content))
-    except Exception:
-        # If parsing fails, try one more time with a more explicit request
-        recovery_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You need to output a valid JSON object for a document structure. Nothing else, just the JSON."),
-            (
-                "human",
-                f"I need a valid JSON for a document structure based on these requirements: {requirements}\n\nPlease provide ONLY the JSON object without any explanations.",
-            ),
-        ])
-
-        response = model.invoke(recovery_prompt.format_messages(requirements=requirements))
-        doc_structure = parse_supervisor_response(str(response.content))
+    doc_structure = model.invoke(messages)
 
     # Extract style preferences if available
     if hasattr(doc_structure, "style_preferences"):

@@ -1,7 +1,9 @@
-import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import anthropic
+import backoff
+import openai
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -23,26 +25,32 @@ def get_content_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpenAI
     """Get an LLM for content generation"""
     if model_name:
         if "claude" in model_name.lower():
-            return ChatAnthropic(model=model_name, temperature=0.7)  # type: ignore[call-arg]
+            return ChatAnthropic(model=model_name, temperature=0.7, max_tokens=4000)  # type: ignore[call-arg]
         else:
             return ChatOpenAI(model=model_name, temperature=0.7)  # type: ignore[call-arg]
 
     # Default to GPT-4 for content generation
-    return ChatAnthropic(model=DEFAULT_CONTENT_MODEL_ID, temperature=0.7)  # type: ignore[call-arg]
+    return ChatAnthropic(model=DEFAULT_CONTENT_MODEL_ID, temperature=0.7, max_tokens=4000)  # type: ignore[call-arg]
 
 
 def get_review_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpenAI:
     """Get an LLM for content review"""
     if model_name:
         if "claude" in model_name.lower():
-            return ChatAnthropic(model=model_name, temperature=0.3)  # type: ignore[call-arg]
+            return ChatAnthropic(model=model_name, temperature=0.3, max_tokens=4000)  # type: ignore[call-arg]
         else:
             return ChatOpenAI(model=model_name, temperature=0.3)  # type: ignore[call-arg]
 
     # Default to GPT-o4 with low temperature for reviews
-    return ChatOpenAI(model="o4-mini", temperature=0.3)  # type: ignore[call-arg]
+    return ChatOpenAI(model="o4-mini", temperature=0.3, max_tokens=4000)  # type: ignore[call-arg]
 
 
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, anthropic.RateLimitError),
+    max_tries=3,
+    max_value=10,
+)
 def generate_text_content(section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI) -> str:
     """Generate text content for a section"""
     # Check if section has layout properties
@@ -57,7 +65,7 @@ def generate_text_content(section: SectionStructure | SubsectionStructure, model
         **KEY POINT** Your important point here
         This will automatically create highlighted boxes in the final document.
         """
-    prompt = ChatPromptTemplate.from_messages([
+    messages = [
         (
             "system",
             f"""You are a professional content writer specialized in creating high-quality document text.
@@ -76,23 +84,37 @@ def generate_text_content(section: SectionStructure | SubsectionStructure, model
         ),
         (
             "human",
-            """
-        Section title: {title}
-        Requirements: {requirements}
+            f"""
+        Section title: {section.title}
+        Requirements: {section.content_requirements}
         Generate appropriate content for this section.
         """,
         ),
-    ])
+    ]
     # Format the prompt with section title and requirements
-    response = model.invoke(prompt.format_messages(requirements=section.content_requirements, title=section.title))
+    response = model.invoke(messages)
     return response.content
 
 
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, anthropic.RateLimitError),
+    max_tries=3,
+    max_value=10,
+)
 def generate_table_content(
     section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI
 ) -> TableContent:
     """Generate table content for a section"""
-    prompt = ChatPromptTemplate.from_messages([
+
+    data_requirements = (
+        section.data_requirements
+        if section.data_requirements
+        else "No specific data requirements provided, use your judgment to create appropriate data."
+    )
+    struct_model = model.with_structured_output(TableContent)
+
+    messages = [
         (
             "system",
             """You are a data specialist who creates tables with realistic data.
@@ -116,14 +138,42 @@ def generate_table_content(
         ),
         (
             "human",
-            """
-        Section title: {title}
-        Content requirements: {requirements}
+            f"""
+        Section title: {section.title}
+        Content requirements: {section.content_requirements}
         Data requirements: {data_requirements}
         Generate a complete table with appropriate headers and data rows.
         """,
         ),
-    ])
+    ]
+
+    # Parse the JSON response
+    try:
+        table_data = struct_model.invoke(messages)
+    except Exception:
+        # If the response is not valid JSON, use default data
+        table_data = TableContent(**{
+            "headers": ["Column 1", "Column 2", "Column 3"],
+            "rows": [
+                ["Data 1", "Data 2", "Data 3"],
+                ["Data 4", "Data 5", "Data 6"],
+            ],
+        })
+
+    return table_data
+
+
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, anthropic.RateLimitError),
+    max_tries=3,
+    max_value=10,
+)
+def generate_chart_content(
+    section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI
+) -> ChartContent:
+    """Generate chart content for a section"""
+    struct_model = model.with_structured_output(ChartContent)
 
     data_requirements = (
         section.data_requirements
@@ -131,44 +181,7 @@ def generate_table_content(
         else "No specific data requirements provided, use your judgment to create appropriate data."
     )
 
-    response = model.invoke(
-        prompt.format_messages(
-            requirements=section.content_requirements, title=section.title, data_requirements=data_requirements
-        )
-    )
-
-    # Parse the JSON response
-    try:
-        table_data = json.loads(response.content)
-    except json.JSONDecodeError:
-        # If the response is not valid JSON, try to extract JSON using regex
-        import re
-
-        json_match = re.search(r"```json\n(.*?)```", response.content, re.DOTALL)
-        if json_match:
-            table_data = json.loads(json_match.group(1))
-        else:
-            json_match = re.search(r"```(.*?)```", response.content, re.DOTALL)
-            if json_match:
-                table_data = json.loads(json_match.group(1))
-            else:
-                # Create a default table if parsing fails
-                table_data = {
-                    "headers": ["Column 1", "Column 2", "Column 3"],
-                    "rows": [
-                        ["Data 1", "Data 2", "Data 3"],
-                        ["Data 4", "Data 5", "Data 6"],
-                    ],
-                }
-
-    return TableContent(**table_data)
-
-
-def generate_chart_content(
-    section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI
-) -> ChartContent:
-    """Generate chart content for a section"""
-    prompt = ChatPromptTemplate.from_messages([
+    messages = [
         (
             "system",
             """You are a data visualization expert.
@@ -200,65 +213,49 @@ def generate_chart_content(
         ),
         (
             "human",
-            """
-        Section title: {title}
-        Content requirements: {requirements}
+            f"""
+        Section title: {section.title}
+        Content requirements: {section.content_requirements}
         Data requirements: {data_requirements}
         Generate appropriate chart data.
         """,
         ),
-    ])
-
-    data_requirements = (
-        section.data_requirements
-        if section.data_requirements
-        else "No specific data requirements provided, use your judgment to create appropriate data."
-    )
-
-    response = model.invoke(
-        prompt.format_messages(
-            requirements=section.content_requirements, title=section.title, data_requirements=data_requirements
-        )
-    )
+    ]
 
     # Parse the JSON response
     try:
-        chart_data = json.loads(response.content)
-    except json.JSONDecodeError:
-        # If the response is not valid JSON, try to extract JSON using regex
-        import re
-
-        json_match = re.search(r"```json\n(.*?)```", response.content, re.DOTALL)
-        if json_match:
-            chart_data = json.loads(json_match.group(1))
-        else:
-            json_match = re.search(r"```(.*?)```", response.content, re.DOTALL)
-            if json_match:
-                chart_data = json.loads(json_match.group(1))
-            else:
-                # Create a default chart if parsing fails
-                chart_data = {
-                    "chart_type": "bar",
-                    "title": section.title,
-                    "x_label": "Categories",
-                    "y_label": "Values",
-                    "categories": ["Category A", "Category B", "Category C", "Category D"],
-                    "values": [23, 45, 56, 78],
-                }
+        chart_data = struct_model.invoke(messages)
+    except Exception:
+        # Create a default chart if parsing fails
+        chart_data = ChartContent(**{
+            "chart_type": "bar",
+            "title": section.title,
+            "x_label": "Categories",
+            "y_label": "Values",
+            "categories": ["Category A", "Category B", "Category C", "Category D"],
+            "values": [23, 45, 56, 78],
+        })
 
     # Handle the case where 'values' is missing but 'series' is present
-    if "values" not in chart_data and "series" in chart_data and chart_data["series"]:
+    if not chart_data.values and chart_data.series:
         # Use the first series values as the main values
-        chart_data["values"] = chart_data["series"][0]["values"]
+        chart_data.values = chart_data.series[0].values
 
-    return ChartContent(**chart_data)
+    return chart_data
 
 
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, anthropic.RateLimitError),
+    max_tries=3,
+    max_value=10,
+)
 def generate_image_content(
     section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI
 ) -> ImageContent:
     """Generate image content description for a section"""
-    prompt = ChatPromptTemplate.from_messages([
+    struct_model = model.with_structured_output(ImageContent)
+    messages = [
         (
             "system",
             """You are an image description specialist.
@@ -274,19 +271,25 @@ def generate_image_content(
         ),
         (
             "human",
-            """
-        Section title: {title}
-        Content requirements: {requirements}
+            f"""
+        Section title: {section.title}
+        Content requirements: {section.content_requirements}
         Generate a detailed image description.
         """,
         ),
-    ])
+    ]
 
-    response = model.invoke(prompt.format_messages(requirements=section.content_requirements, title=section.title))
+    response = struct_model.invoke(messages)
 
-    return ImageContent(description=response.content, placeholder=f"Image: {section.title}")
+    return response
 
 
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, anthropic.RateLimitError),
+    max_tries=3,
+    max_value=10,
+)
 def generate_complex_content(
     section: SectionStructure | SubsectionStructure, model: ChatAnthropic | ChatOpenAI
 ) -> ComplexContent:
@@ -297,7 +300,7 @@ def generate_complex_content(
 
     arrangement_instructions = f"The elements should be arranged {arrangement}ly in the layout."
 
-    prompt = ChatPromptTemplate.from_messages([
+    messages = [
         (
             "system",
             f"""You are a document design specialist who creates complex layouts.
@@ -321,15 +324,15 @@ def generate_complex_content(
         ),
         (
             "human",
-            """
-        Section title: {title}
-        Content requirements: {requirements}
+            f"""
+        Section title: {section.title}
+        Content requirements: {section.content_requirements}
         Generate a detailed layout description and list of elements.
         """,
         ),
-    ])
+    ]
 
-    response = model.invoke(prompt.format_messages(requirements=section.content_requirements, title=section.title))
+    response = model.invoke(messages)
 
     # Parse the response to extract layout description and elements
     layout_description = ""
@@ -513,6 +516,7 @@ def parallel_executor_node(state: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Updated state with all generated content
     """
+    print(state)
     sections_to_process = state["sections_to_process"]
     model_name = state.get("content_model")
     max_workers = state.get("parallel_workers", 5)
@@ -591,7 +595,7 @@ def parallel_executor_node(state: dict[str, Any]) -> dict[str, Any]:
                 )
                 section_contents.append({"section_content": fallback_content, "section_path": section_info["path"]})
 
-    return {"all_section_content": section_contents}
+    return {"all_section_content": section_contents, **state}
 
 
 def content_aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -604,7 +608,8 @@ def content_aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Updated state with aggregated document
     """
-    doc_title = state["doc_title"]
+    print("Aggregating content...")
+    doc_title = state.get("doc_title", "Generated Document Title")
     all_content = state["all_section_content"]
 
     # Create a document structure to hold all content
