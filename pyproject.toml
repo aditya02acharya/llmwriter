@@ -109,6 +109,7 @@ select = [
 ]
 extend-select = ["I"]
 ignore = [
+    "C901",
     # LineTooLong
     "E501",
     # DoNotAssignLambda

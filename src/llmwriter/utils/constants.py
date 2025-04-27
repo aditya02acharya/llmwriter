@@ -1,1 +1,2 @@
-DEFAULT_ANTHROPIC_MODEL_ID: str = "claude-3-7-sonnet-20250219"
+DEFAULT_SUPERVISOR_MODEL_ID: str = "claude-3-7-sonnet-20250219"
+DEFAULT_CONTENT_MODEL_ID: str = "claude-3-5-sonnet-20241022"

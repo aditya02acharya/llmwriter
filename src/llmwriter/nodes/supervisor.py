@@ -10,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from ..models.structures import DocumentStructure, SectionStructure, SubsectionStructure
-from ..utils.constants import DEFAULT_ANTHROPIC_MODEL_ID
+from ..utils.constants import DEFAULT_SUPERVISOR_MODEL_ID
 
 
 def get_supervisor_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpenAI:
@@ -22,7 +22,7 @@ def get_supervisor_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpe
             return ChatOpenAI(model=model_name, temperature=0.2)
 
     # Default to Claude 3.7 for complex reasoning tasks
-    return ChatAnthropic(model=DEFAULT_ANTHROPIC_MODEL_ID, temperature=0.2)  # type: ignore[call-arg]
+    return ChatAnthropic(model=DEFAULT_SUPERVISOR_MODEL_ID, temperature=0.2)  # type: ignore[call-arg]
 
 
 def parse_supervisor_response(response_content: str) -> DocumentStructure:
@@ -78,9 +78,19 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         3. For charts: what type of chart and what data should be visualized
         4. For images: what the image should depict
         5. For complex layouts: how text, tables, and visuals should be arranged
+        Visual Styling:
+        - Specify when text content should include highlighted key points (use **KEY POINT** at the start)
+        - For complex layouts, indicate if elements should be arranged horizontally or vertically
+        - Suggest appropriate color theme ("professional", "creative", "modern", "warm", "minimal")
+        - Recommend layout style ("standard", "modern", "wide", "two_column", "compact")
         Your response must be in this JSON format:
         {
             "title": "Document Title",
+            "style_preferences": {
+                "color_theme": "professional|creative|modern|warm|minimal",
+                "layout_style": "standard|modern|wide|two_column|compact",
+                "visual_notes": "Any specific notes about visual styling"
+            },
             "sections": [
                 {
                     "id": "section-1",
@@ -88,6 +98,11 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
                     "type": "text|table|chart|image|complex",
                     "content_requirements": "Detailed requirements for this section",
                     "data_requirements": "For tables/charts, specify data requirements",
+                    "layout_properties": {
+                        "arrangement": "horizontal|vertical",
+                        "highlight_key_points": true|false,
+                        "use_boxed_content": true|false
+                    },
                     "subsections": [ ... ] (optional, same structure as sections)
                 },
                 ...
@@ -97,11 +112,11 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         - Include a mix of content types based on what would be most appropriate
         - Make sure each section has a unique ID
         - Be very specific in content requirements to guide content generation
-        - For text sections, provide clear guidance on topics to cover
+        - Think about visual appeal - use boxed content for important information
+        - For text sections, mark important points with **KEY POINT** prefix
         - For tables, specify what columns are needed and what kind of data
         - For charts, indicate what relationships should be visualized
         - For complex layouts, detail how elements should be arranged
-        - Don't use placeholder text - provide actual detailed requirements
         """,
         ),
         ("human", "{requirements}"),
@@ -126,7 +141,18 @@ def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         response = model.invoke(recovery_prompt.format_messages(requirements=requirements))
         doc_structure = parse_supervisor_response(str(response.content))
 
-    return {"doc_structure": doc_structure}
+    # Extract style preferences if available
+    if hasattr(doc_structure, "style_preferences"):
+        state["style_preferences"] = doc_structure.style_preferences
+
+        # Apply style preferences directly if specified
+        if hasattr(doc_structure.style_preferences, "color_theme"):
+            state["selected_theme"] = doc_structure.style_preferences.color_theme
+
+        if hasattr(doc_structure.style_preferences, "layout_style"):
+            state["selected_layout"] = doc_structure.style_preferences.layout_style
+
+    return {"doc_structure": doc_structure, **state}
 
 
 def section_router_node(state: dict[str, Any]) -> dict[str, Any]:
