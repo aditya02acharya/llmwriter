@@ -667,9 +667,9 @@ def process_chart_content(
     plt.figure(figsize=(7, 4.5))
 
     # Extract colors for the chart
-    primary_color = f"#{color_theme['primary'].hexval()[2:]}"
-    secondary_color = f"#{color_theme['secondary'].hexval()[2:]}"
-    accent_color = f"#{color_theme['accent'].hexval()[2:]}"
+    primary_color = color_theme["primary"]
+    secondary_color = color_theme["secondary"]
+    accent_color = color_theme["accent"]
 
     # Create a color palette
     color_palette = [primary_color, secondary_color, accent_color]
@@ -685,7 +685,7 @@ def process_chart_content(
             plt.bar(
                 chart_data.categories, chart_data.values, color=color_palette[0], alpha=0.8, edgecolor=primary_color
             )
-
+            plt.xticks(rotation=45, ha="right")
             # Add data values on top of the bars
             for i, v in enumerate(chart_data.values):
                 plt.text(i, v + max(chart_data.values) * 0.02, f"{v:,}", ha="center", fontsize=8, color=primary_color)

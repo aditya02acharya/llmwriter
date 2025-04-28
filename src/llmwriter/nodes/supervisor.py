@@ -16,12 +16,12 @@ def get_supervisor_llm(model_name: str | None = None) -> ChatAnthropic | ChatOpe
     """Get a high-capability LLM for supervision tasks"""
     if model_name:
         if "claude" in model_name.lower():
-            return ChatAnthropic(model=model_name, temperature=0.2, max_tokens=4000)  # type: ignore[call-arg]
+            return ChatAnthropic(model=model_name, temperature=0.2, max_tokens=8192)  # type: ignore[call-arg]
         else:
             return ChatOpenAI(model=model_name, temperature=0.2)
 
     # Default to Claude 3.7 for complex reasoning tasks
-    return ChatAnthropic(model=DEFAULT_SUPERVISOR_MODEL_ID, temperature=0.2, max_tokens=4000)  # type: ignore[call-arg]
+    return ChatAnthropic(model=DEFAULT_SUPERVISOR_MODEL_ID, temperature=0.2, max_tokens=8192)  # type: ignore[call-arg]
 
 
 def parse_supervisor_response(response_content: str) -> DocumentStructure:

@@ -516,7 +516,6 @@ def parallel_executor_node(state: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Updated state with all generated content
     """
-    print(state)
     sections_to_process = state["sections_to_process"]
     model_name = state.get("content_model")
     max_workers = state.get("parallel_workers", 5)
@@ -650,5 +649,6 @@ def content_aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
 
     # Build the entire document hierarchy
     document["sections"] = build_section_hierarchy("", 1)
+    print(document)
 
     return {"document": document}
