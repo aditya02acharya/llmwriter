@@ -1,10 +1,5 @@
 # llmwriter
 
-[![Release](https://img.shields.io/github/v/release/aditya02acharya/llmwriter)](https://img.shields.io/github/v/release/aditya02acharya/llmwriter)
-[![codecov](https://codecov.io/gh/aditya02acharya/llmwriter/branch/main/graph/badge.svg)](https://codecov.io/gh/aditya02acharya/llmwriter)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/aditya02acharya/llmwriter)](https://img.shields.io/github/commit-activity/m/aditya02acharya/llmwriter)
-[![License](https://img.shields.io/github/license/aditya02acharya/llmwriter)](https://img.shields.io/github/license/aditya02acharya/llmwriter)
-
 # LLMWriter: Synthetic PDF Document Generator
 
 A GenAI tool for generating synthetic PDF documents based on user-defined requirements using langraph with a supervisory hierarchy of LLM calls.
