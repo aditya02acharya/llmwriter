@@ -4,7 +4,6 @@
 
 A GenAI tool for generating synthetic PDF documents based on user-defined requirements using langraph with a supervisory hierarchy of LLM calls.
 
-- **Github repository**: <https://github.com/aditya02acharya/llmwriter/>
 
 ## Overview
 
